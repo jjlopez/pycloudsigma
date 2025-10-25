@@ -147,44 +147,55 @@ class LibDrive(ResourceBase):
 class Drive(ResourceBase):
     resource_name = 'drives'
 
-    def clone(self, uuid, data=None, avoid=None):
+    def clone(self, uuid, data=None):
         """
-        Clone a drive.
+        Clones a drive. Request body is optional and any or all of the key/value
+        pairs from the drive definition can be omitted. Size of the cloned drive
+        can only be bigger or the same.
 
         :param uuid:
             Source drive for the clone.
         :param data:
             Clone drive options. Refer to API docs for possible options.
-        :param avoid:
-            A list of drive or server uuids to avoid for the clone.
-            Avoid attempts to put the clone on a different physical storage
-            host from the drives in *avoid*.
-            If a server uuid is in *avoid* it is internally expanded
-            to the drives attached to the server.
         :return:
             Cloned drive definition.
         """
         data = data or {}
-        query_params = {}
-        if avoid:
-            if isinstance(avoid, basestring):
-                avoid = [avoid]
-            query_params['avoid'] = ','.join(avoid)
-
-        return self._action(uuid, 'clone', data, query_params=query_params)
+        return self._action(uuid, 'clone', data)
 
     def resize(self, uuid, data=None):
         """
-        Resize a drive. Raises an error if drive is mounted on a running
-        server or unavailable.
+        In order to make sure that drive changes take effect, one can use the resize action.
+        It updates a drive definition, and returns an error if not possible to
+        completely apply the new drive definition, which may happen if the drive is
+        mounted on a running server. The name of the action is resize because
+        only drive size cannot be changed for a drive mounted on a running server.
+        Note that the resize action is a full definition update (it can update even name and metadata),
+        so a full definition should be provided to this call.
+
         :param uuid:
             UUID of the drive.
         :param data:
-            Drive definition containing the new size.
+            Drive definition containing the new size and other fields.
         :return:
         """
         data = data or {}
         return self._action(uuid, 'resize', data)
+
+    def delete_multiple(self, data):
+        """
+        Deletes multiple mounted or unmounted drives specified by their UUIDs.
+
+        :param data:
+            A list of dicts, where each dict contains a 'uuid' field.
+            Example: [{'uuid': 'abc'}, {'uuid': 'xyz'}]
+            Alternatively, a dict with an 'objects' key containing such a list.
+            Example: {'objects': [{'uuid': 'abc'}, {'uuid': 'xyz'}]}
+        :return:
+            API response (usually 204 No Content for successful deletion).
+        """
+        url = self._get_url()
+        return self.c.delete(url, data=self._pepare_data(data))
 
     def create(self, data, avoid=None):
         """
@@ -782,3 +793,4 @@ class VrFwFilters(ResourceBase):
 
 class Routes(ResourceBase):
     resource_name = 'routes'
+
